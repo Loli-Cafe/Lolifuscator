@@ -1,0 +1,58 @@
+# Stolen from recaf3
+name: CI
+
+on:
+  push:
+    branches:
+      - hentai
+  pull_request:
+    branches:
+      - hentai
+
+permissions:
+  contents: write
+  checks: write
+  pull-requests: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Alternative for testing on multiple platforms. Ubuntu runs the quickest with the latest JVM.
+        #   os: [ubuntu-latest, windows-latest, macos-latest]
+        #   java-version: [11, 17]
+        os: [ ubuntu-latest ]
+        java-version: [ 17 ]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Java JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: adopt-hotspot
+          java-version: ${{ matrix.java-version }}
+      - run: ./gradlew --info shadowJarForAllOsWithUniversalJar
+      - name: Upload Results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: Event File
+          retention-days: 21
+          path: |
+            **build/release/*.jar
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # taken from: https://github.com/EnricoMi/publish-unit-test-result-action/blob/v1.20/README.md#support-fork-repositories-and-dependabot-branches
+  event_file:
+    name: "Event File"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: Event File
+          path: ${{ github.event_path }}
